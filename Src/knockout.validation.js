@@ -56,6 +56,7 @@
         errorsAsTitle: true,            // enables/disables showing of errors as title attribute of the target element.
         errorsAsTitleOnModified: false, // shows the error when hovering the input field (decorateElement must be true)
         messageTemplate: null,
+		keepFocus: false,				// keep the focus on invalid field * works with decorateElement = true
         insertMessages: true,           // automatically inserts validation messages as <span></span>
         parseInputAttributes: false,    // parses the HTML5 validation attribute from a form element and adds that to the object
         writeInputAttributes: false,    // adds HTML5 input validation attributes to form elements that ko observable's are bound to
@@ -808,6 +809,44 @@
     };
 
     ko.bindingHandlers['validationElement'] = {
+        init: function (element, valueAccessor, allBindingsAccessor, data) {
+            // attach blur event with 
+            var focusSetting = function () {
+                var focus = {};
+                var obsv = valueAccessor(),
+                config = utils.getConfigOptions(element),
+                val = ko.utils.unwrapObservable(obsv),
+                msg = null,
+                isModified = false,
+                isValid = false;
+                obsv.extend({ validatable: true });
+
+                isModified = obsv.isModified();
+                isValid = obsv.isValid();
+                var setFocus = (isModified ? !isValid : false);
+                focus = setFocus;
+                if (config.keepFocus && isModified && !isValid) {
+                    element.focus();
+                    event.cancelBubble = true;
+                    if (event.stopPropagation)
+                        event.stopPropagation();
+                    if (event.preventDefault)
+                        event.preventDefault();
+                    else
+                        event.returnValue = false;
+
+                    return false;
+
+                }
+                return focus;
+            }
+            // create an evaluator function that will return something like:
+            // event: { blur: function(){} }
+            blurValueAccessor = function () {
+                return { blur: focusSetting }
+            };
+            ko.bindingHandlers.event.init(element, blurValueAccessor, allBindingsAccessor, data);
+
         update: function (element, valueAccessor) {
             var obsv = valueAccessor(),
                 config = utils.getConfigOptions(element),
